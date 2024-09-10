@@ -1,0 +1,41 @@
+name: Create issue from discussion
+
+on:
+  discussion:
+    types: [labeled]
+
+jobs:
+  create-issue:
+    if: contains(fromJson('["explorer", "indexer"]'), github.event.label.name)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Create issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            const label = context.payload.label.name;
+            const discussion = context.payload.discussion;
+            
+            const repoMap = {
+            'explorer': 'stampchain-io/BTCStampsExplorer',
+            'indexer': 'stampchain-io/btc_stamps',
+            };
+            
+            if (repoMap[label]) {
+              const [owner, repo] = repoMap[label].split('/');
+              await github.rest.issues.create({
+                owner: owner,
+                repo: repo,
+                title: `Discussion: ${discussion.title}`,
+                body: `Created from discussion: ${discussion.html_url}\n\n${discussion.body}`,
+                labels: ['from-discussion']
+              });
+            }
