@@ -42,14 +42,20 @@ jobs:
                 labels: ['from-discussion']
               });
               
-              // Update discussion with issue link
+              // Update discussion with issue link using GraphQL
               const issueUrl = issue.data.html_url;
               const updatedBody = `${discussion.body}\n\n---\nIssue created: ${issueUrl}`;
               
-              await github.rest.discussions.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                discussion_number: discussion.number,
+              await github.graphql(`
+                mutation($discussionId: ID!, $body: String!) {
+                  updateDiscussion(input: {discussionId: $discussionId, body: $body}) {
+                    discussion {
+                      id
+                    }
+                  }
+                }
+              `, {
+                discussionId: discussion.node_id,
                 body: updatedBody
               });
               
