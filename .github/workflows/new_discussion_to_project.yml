@@ -1,4 +1,4 @@
-name: Add new organization discussions to project
+name: Add org-wide discussions to project
 
 on:
   discussion:
@@ -15,21 +15,16 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Get Project ID and Add Discussion
+      - name: Add Discussion to Project
         uses: actions/github-script@v6
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const fs = require('fs');
-            const eventPayload = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-            console.log('Event payload:', JSON.stringify(eventPayload, null, 2));
+            const orgLogin = 'stampchain-io';
+            const projectNumber = 3;
             
-            const orgLogin = eventPayload.organization.login;
-            const repoName = eventPayload.repository.name;
-            const discussion = eventPayload.discussion;
-            
-            console.log(`Organization: ${orgLogin}, Repository: ${repoName}, Discussion Number: ${discussion.number}`);
-            console.log('Discussion node_id:', discussion.node_id);
+            console.log(`Organization: ${orgLogin}, Project Number: ${projectNumber}`);
+            console.log('Discussion URL:', context.payload.discussion.html_url);
             
             // First, get the project ID
             const getProjectIdQuery = `
@@ -47,7 +42,7 @@ jobs:
               console.log('Fetching Project ID...');
               const projectResult = await github.graphql(getProjectIdQuery, {
                 org: orgLogin,
-                number: 3  // Replace with your actual project number
+                number: projectNumber
               });
               projectId = projectResult.organization.projectV2.id;
               console.log('Project ID:', projectId);
@@ -58,8 +53,8 @@ jobs:
             
             // Now, add the discussion to the project
             const addToProjectMutation = `
-              mutation($input: AddProjectV2ItemByIdInput!) {
-                addProjectV2ItemById(input: $input) {
+              mutation($input: AddProjectV2ItemByUrlInput!) {
+                addProjectV2ItemByUrl(input: $input) {
                   item {
                     id
                   }
@@ -69,28 +64,18 @@ jobs:
             
             try {
               console.log('Adding discussion to project...');
-              console.log('Input:', JSON.stringify({
-                input: {
-                  projectId: projectId,
-                  contentId: discussion.node_id
-                }
-              }, null, 2));
-              
               const result = await github.graphql(addToProjectMutation, {
                 input: {
                   projectId: projectId,
-                  contentId: discussion.node_id
+                  url: context.payload.discussion.html_url
                 }
               });
               
               console.log('Added to project:', JSON.stringify(result, null, 2));
-              
-              return result.addProjectV2ItemById.item.id;
             } catch (error) {
               console.error('Error adding to project:', error);
               if (error.errors) {
                 error.errors.forEach((e, i) => console.error(`Error ${i + 1}:`, e));
               }
-              console.error('Full error object:', JSON.stringify(error, null, 2));
               throw error;
             }
