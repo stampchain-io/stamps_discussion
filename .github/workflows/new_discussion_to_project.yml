@@ -26,6 +26,7 @@ jobs:
             console.log(`Organization: ${orgLogin}, Project Number: ${projectNumber}`);
             console.log('Discussion URL:', context.payload.discussion.html_url);
             console.log('Discussion node_id:', context.payload.discussion.node_id);
+            console.log('Discussion repository:', context.payload.repository.full_name);
             
             // First, get the project ID
             const getProjectIdQuery = `
@@ -80,6 +81,18 @@ jobs:
               // Additional error information
               console.log('Full context payload:', JSON.stringify(context.payload, null, 2));
               console.log('GitHub context:', JSON.stringify(github.context, null, 2));
+              
+              // Try to fetch the discussion details
+              try {
+                const { data: discussionData } = await github.rest.discussions.get({
+                  owner: context.payload.organization.login,
+                  repo: context.payload.repository.name,
+                  discussion_number: context.payload.discussion.number
+                });
+                console.log('Discussion details:', JSON.stringify(discussionData, null, 2));
+              } catch (discussionError) {
+                console.error('Error fetching discussion details:', discussionError);
+              }
               
               throw error;
             }
