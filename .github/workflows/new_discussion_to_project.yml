@@ -16,7 +16,7 @@ jobs:
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Get Project ID and Add Discussion
-        uses: actions/github-script@v7
+        uses: actions/github-script@v6
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
@@ -66,19 +66,10 @@ jobs:
             `;
             
             try {
-              // First, get the discussion ID using the discussion number
-              const { data: { discussion: discussionData } } = await github.rest.discussions.get({
-                owner: orgLogin,
-                repo: repoName,
-                discussion_number: discussion.number
-              });
-              
-              console.log('Discussion data:', JSON.stringify(discussionData, null, 2));
-              
               const result = await github.graphql(addToProjectMutation, {
                 input: {
                   projectId: projectId,
-                  contentId: discussionData.node_id
+                  contentId: discussion.node_id
                 }
               });
               
