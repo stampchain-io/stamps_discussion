@@ -15,16 +15,7 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Debug Environment
-        run: |
-          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
-          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
-          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
-          echo "GITHUB_EVENT_PATH: $GITHUB_EVENT_PATH"
-          cat $GITHUB_EVENT_PATH
-
-      - name: Get discussion details
-        id: get_discussion
+      - name: Get discussion details and add to project
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -33,52 +24,33 @@ jobs:
             const eventPayload = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
             console.log('Event payload:', JSON.stringify(eventPayload, null, 2));
             
-            const orgLogin = eventPayload.organization?.login;
-            if (!orgLogin) {
-              throw new Error('Organization login not found in payload');
-            }
+            const orgLogin = eventPayload.organization.login;
+            const repoName = eventPayload.repository.name;
+            const discussionNumber = eventPayload.discussion.number;
             
-            console.log('Organization login:', orgLogin);
-            
-            const query = `query($org: String!) {
-              organization(login: $org) {
-                discussionCategories(first: 10) {
-                  nodes {
-                    discussions(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
-                      nodes {
-                        id
-                        title
-                        createdAt
-                      }
-                    }
-                  }
-                }
-              }
-            }`;
-            
-            const variables = { org: orgLogin };
+            console.log(`Organization: ${orgLogin}, Repository: ${repoName}, Discussion Number: ${discussionNumber}`);
             
             try {
-              const result = await github.graphql(query, variables);
-              console.log('GraphQL result:', JSON.stringify(result, null, 2));
+              // Fetch discussion details
+              const { data: discussion } = await github.rest.discussions.get({
+                owner: orgLogin,
+                repo: repoName,
+                discussion_number: discussionNumber
+              });
               
-              const discussions = result.organization.discussionCategories.nodes.flatMap(category => category.discussions.nodes);
-              const mostRecentDiscussion = discussions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+              console.log('Discussion details:', JSON.stringify(discussion, null, 2));
               
-              if (mostRecentDiscussion) {
-                console.log('Most recent discussion:', JSON.stringify(mostRecentDiscussion, null, 2));
-                return mostRecentDiscussion.id;
-              } else {
-                throw new Error('No discussions found');
-              }
+              // Add discussion to project
+              const response = await github.rest.projects.createCard({
+                column_id: 'YOUR_PROJECT_COLUMN_ID',
+                content_id: discussion.id,
+                content_type: 'Discussion'
+              });
+              
+              console.log('Added to project:', JSON.stringify(response.data, null, 2));
+              
+              return discussion.id;
             } catch (error) {
-              console.error('GraphQL Error:', error);
+              console.error('Error:', error);
               throw error;
             }
-
-      - name: Add to Project
-        uses: actions/add-to-project@v0.6.0
-        with:
-          project-url: https://github.com/orgs/stampchain-io/projects/3
-          github-token: ${{ steps.generate_token.outputs.token }}
-          content-id: ${{ steps.get_discussion.outputs.result }}
