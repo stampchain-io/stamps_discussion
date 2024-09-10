@@ -25,9 +25,10 @@ jobs:
             console.log('Event payload:', JSON.stringify(eventPayload, null, 2));
             
             const orgLogin = eventPayload.organization.login;
+            const repoName = eventPayload.repository.name;
             const discussion = eventPayload.discussion;
             
-            console.log(`Organization: ${orgLogin}, Discussion Number: ${discussion.number}`);
+            console.log(`Organization: ${orgLogin}, Repository: ${repoName}, Discussion Number: ${discussion.number}`);
             
             // First, get the project ID
             const getProjectIdQuery = `
@@ -65,10 +66,19 @@ jobs:
             `;
             
             try {
+              // First, get the discussion ID using the discussion number
+              const { data: { discussion: discussionData } } = await github.rest.discussions.get({
+                owner: orgLogin,
+                repo: repoName,
+                discussion_number: discussion.number
+              });
+              
+              console.log('Discussion data:', JSON.stringify(discussionData, null, 2));
+              
               const result = await github.graphql(addToProjectMutation, {
                 input: {
                   projectId: projectId,
-                  contentId: discussion.node_id
+                  contentId: discussionData.node_id
                 }
               });
               
