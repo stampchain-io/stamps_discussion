@@ -1,4 +1,4 @@
-name: Add new discussions to project
+name: Add new organization discussions to project
 
 on:
   discussion:
@@ -21,12 +21,21 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const discussion = await github.rest.discussions.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              discussion_number: context.payload.discussion.number
-            });
-            return discussion.data.node_id;
+            const query = `query($org: String!, $number: Int!) {
+              organization(login: $org) {
+                discussion(number: $number) {
+                  id
+                }
+              }
+            }`;
+            
+            const variables = {
+              org: context.payload.organization.login,
+              number: context.payload.discussion.number
+            };
+            
+            const result = await github.graphql(query, variables);
+            return result.organization.discussion.id;
 
       - name: Add to Project
         uses: actions/add-to-project@v0.6.0
