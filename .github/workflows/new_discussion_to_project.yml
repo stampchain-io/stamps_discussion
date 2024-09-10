@@ -26,7 +26,6 @@ jobs:
             console.log(`Organization: ${orgLogin}, Project Number: ${projectNumber}`);
             console.log('Discussion URL:', context.payload.discussion.html_url);
             console.log('Discussion node_id:', context.payload.discussion.node_id);
-            console.log('Discussion repository:', context.payload.repository.full_name);
             
             // First, get the project ID
             const getProjectIdQuery = `
@@ -53,10 +52,10 @@ jobs:
               throw error;
             }
             
-            // Now, add the discussion to the project
+            // Now, add the discussion to the project using its URL
             const addToProjectMutation = `
-              mutation($projectId: ID!, $contentId: ID!) {
-                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+              mutation($projectId: ID!, $url: String!) {
+                addProjectV2ItemByUrl(input: {projectId: $projectId, url: $url}) {
                   item {
                     id
                   }
@@ -68,7 +67,7 @@ jobs:
               console.log('Adding discussion to project...');
               const result = await github.graphql(addToProjectMutation, {
                 projectId: projectId,
-                contentId: context.payload.discussion.node_id
+                url: context.payload.discussion.html_url
               });
               
               console.log('Added to project:', JSON.stringify(result, null, 2));
@@ -80,30 +79,6 @@ jobs:
               
               // Additional error information
               console.log('Full context payload:', JSON.stringify(context.payload, null, 2));
-              
-              // Fetch discussion details using GraphQL
-              const getDiscussionQuery = `
-                query($owner: String!, $repo: String!, $number: Int!) {
-                  repository(owner: $owner, name: $repo) {
-                    discussion(number: $number) {
-                      id
-                      title
-                      url
-                    }
-                  }
-                }
-              `;
-              
-              try {
-                const discussionData = await github.graphql(getDiscussionQuery, {
-                  owner: context.payload.organization.login,
-                  repo: context.payload.repository.name,
-                  number: context.payload.discussion.number
-                });
-                console.log('Discussion details:', JSON.stringify(discussionData, null, 2));
-              } catch (discussionError) {
-                console.error('Error fetching discussion details:', discussionError);
-              }
               
               throw error;
             }
