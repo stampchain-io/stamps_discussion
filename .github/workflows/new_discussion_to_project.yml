@@ -31,10 +31,35 @@ jobs:
           script: |
             const projectId = 'PVT_kwDOCAGLAM4Anzfw';
             const discussionId = context.payload.discussion.node_id;
+            const orgName = context.payload.organization.login;
+            const repoName = context.payload.repository.name;
             
             console.log(`Adding discussion ${discussionId} to project ${projectId}`);
+            console.log(`Organization: ${orgName}, Repository: ${repoName}`);
             
             try {
+              // First, verify the discussion exists
+              const { repository } = await github.graphql(`
+                query($owner: String!, $name: String!, $number: Int!) {
+                  repository(owner: $owner, name: $name) {
+                    discussion(number: $number) {
+                      id
+                    }
+                  }
+                }
+              `, {
+                owner: orgName,
+                name: repoName,
+                number: context.payload.discussion.number
+              });
+              
+              if (!repository.discussion) {
+                throw new Error(`Discussion not found: ${context.payload.discussion.number}`);
+              }
+              
+              console.log(`Verified discussion ID: ${repository.discussion.id}`);
+              
+              // Now try to add it to the project
               const response = await github.graphql(`
                 mutation($projectId: ID!, $contentId: ID!) {
                   addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
@@ -45,11 +70,11 @@ jobs:
                 }
               `, {
                 projectId: projectId,
-                contentId: discussionId
+                contentId: repository.discussion.id
               });
               
               console.log('Added to project:', JSON.stringify(response, null, 2));
             } catch (error) {
-              console.error('Error adding to project:', error);
+              console.error('Error:', error.message);
               core.setFailed(error.message);
             }
