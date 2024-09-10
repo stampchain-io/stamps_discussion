@@ -2,7 +2,7 @@ name: Add new discussions to project
 
 on:
   discussion:
-    types: [created, reopened]
+    types: [created]
 
 jobs:
   add-to-project:
@@ -16,45 +16,8 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Debug - Print Context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: |
-          echo "GitHub Context: $GITHUB_CONTEXT"
-          echo "Discussion ID: ${{ github.event.discussion.node_id }}"
-          echo "Discussion Number: ${{ github.event.discussion.number }}"
-          echo "Organization: ${{ github.organization.login }}"
-
       - name: Add to project
-        uses: actions/github-script@v6
+        uses: actions/add-to-project@v0.5.0
         with:
+          project-url: https://github.com/orgs/stampchain-io/projects/3
           github-token: ${{ steps.generate_token.outputs.token }}
-          script: |
-            const projectId = 'PVT_kwDOCAGLAM4Anzfw';
-            const contentId = context.payload.discussion.node_id;
-            const discussionNumber = context.payload.discussion.number;
-            const orgName = context.payload.organization.login;
-            
-            console.log(`Adding discussion ${contentId} (number ${discussionNumber}) to project ${projectId}`);
-            console.log(`Organization: ${orgName}`);
-            
-            try {
-              // Add the discussion directly to the project using its node_id
-              const response = await github.graphql(`
-                mutation($projectId: ID!, $contentId: ID!) {
-                  addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
-                    item {
-                      id
-                    }
-                  }
-                }
-              `, {
-                projectId: projectId,
-                contentId: contentId
-              });
-              
-              console.log('Response:', JSON.stringify(response, null, 2));
-            } catch (error) {
-              console.error('Error:', error.message);
-              core.setFailed(error.message);
-            }
