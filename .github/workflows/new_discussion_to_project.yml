@@ -38,33 +38,9 @@ jobs:
             console.log(`Organization: ${orgName}, Repository: ${repoName}`);
             
             try {
-              // First, verify the discussion exists
-              const { repository } = await github.graphql(`
-                query($owner: String!, $name: String!, $number: Int!) {
-                  repository(owner: $owner, name: $name) {
-                    discussion(number: $number) {
-                      id
-                      url
-                    }
-                  }
-                }
-              `, {
-                owner: orgName,
-                name: repoName,
-                number: context.payload.discussion.number
-              });
-              
-              if (!repository.discussion) {
-                throw new Error(`Discussion not found: ${context.payload.discussion.number}`);
-              }
-              
-              console.log(`Verified discussion ID: ${repository.discussion.id}`);
-              console.log(`Discussion URL: ${repository.discussion.url}`);
-              
-              // Try to add it to the project using the URL
               const response = await github.graphql(`
-                mutation($projectId: ID!, $url: String!) {
-                  addProjectV2ItemByUrl(input: {projectId: $projectId, url: $url}) {
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
                     item {
                       id
                     }
@@ -72,7 +48,7 @@ jobs:
                 }
               `, {
                 projectId: projectId,
-                url: repository.discussion.url
+                contentId: discussionId
               });
               
               console.log('Added to project:', JSON.stringify(response, null, 2));
