@@ -44,7 +44,7 @@ jobs:
             try {
               const projectResult = await github.graphql(getProjectIdQuery, {
                 org: orgLogin,
-                number: 3
+                number: 3  // Replace with your actual project number
               });
               projectId = projectResult.organization.projectV2.id;
               console.log('Project ID:', projectId);
@@ -53,10 +53,10 @@ jobs:
               throw error;
             }
             
-            // Now, add the discussion to the project
+            // Now, add the discussion to the project using its URL
             const addToProjectQuery = `
-              mutation($projectId:ID!, $contentId:ID!) {
-                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+              mutation($projectId:ID!, $url:String!) {
+                addProjectV2ItemByUrl(input: {projectId: $projectId, url: $url}) {
                   item {
                     id
                   }
@@ -67,12 +67,12 @@ jobs:
             try {
               const result = await github.graphql(addToProjectQuery, {
                 projectId: projectId,
-                contentId: discussion.node_id
+                url: discussion.html_url
               });
               
               console.log('Added to project:', JSON.stringify(result, null, 2));
               
-              return result.addProjectV2ItemById.item.id;
+              return result.addProjectV2ItemByUrl.item.id;
             } catch (error) {
               console.error('Error adding to project:', error);
               if (error.errors) {
