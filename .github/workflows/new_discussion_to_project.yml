@@ -55,8 +55,8 @@ jobs:
             
             // Now, add the discussion to the project using its URL
             const addToProjectQuery = `
-              mutation($projectId:ID!, $url:String!) {
-                addProjectV2ItemByUrl(input: {projectId: $projectId, url: $url}) {
+              mutation($projectId: ID!, $discussionUrl: String!) {
+                addProjectV2ItemByUrl(input: {projectId: $projectId, url: $discussionUrl}) {
                   item {
                     id
                   }
@@ -67,7 +67,7 @@ jobs:
             try {
               const result = await github.graphql(addToProjectQuery, {
                 projectId: projectId,
-                url: discussion.html_url
+                discussionUrl: discussion.html_url
               });
               
               console.log('Added to project:', JSON.stringify(result, null, 2));
