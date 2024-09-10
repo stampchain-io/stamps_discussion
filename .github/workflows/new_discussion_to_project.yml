@@ -2,7 +2,7 @@ name: Add new organization discussions to project
 
 on:
   discussion:
-    types: [created]
+    types: [created, reopened]
 
 jobs:
   add-to-project:
@@ -15,48 +15,70 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Debug Context
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            console.log('Full github context:', JSON.stringify(github, null, 2));
+            console.log('Event name:', github.context.eventName);
+            console.log('Action:', github.context.action);
+            console.log('Actor:', github.context.actor);
+            console.log('Payload:', JSON.stringify(github.context.payload, null, 2));
+
       - name: Get discussion details
         id: get_discussion
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            console.log('Event payload:', JSON.stringify(github.context.payload));
-            const query = `query($org: String!) {
-              organization(login: $org) {
-                discussionCategories(first: 10) {
-                  nodes {
-                    discussions(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
-                      nodes {
-                        id
+            try {
+              if (!github.context || !github.context.payload) {
+                throw new Error('GitHub context or payload is undefined');
+              }
+
+              const orgLogin = github.context.payload.organization?.login;
+              if (!orgLogin) {
+                throw new Error('Organization login not found in payload');
+              }
+
+              console.log('Organization login:', orgLogin);
+
+              const query = `query($org: String!) {
+                organization(login: $org) {
+                  discussionCategories(first: 10) {
+                    nodes {
+                      discussions(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
+                        nodes {
+                          id
+                          title
+                          createdAt
+                        }
                       }
                     }
                   }
                 }
-              }
-            }`;
-            
-            const variables = {
-              org: context.payload.organization.login
-            };
-            
-            console.log('GraphQL variables:', JSON.stringify(variables));
-            
-            try {
-              const result = await github.graphql(query, variables);
-              console.log('GraphQL result:', JSON.stringify(result));
+              }`;
               
-              // Find the most recently created discussion
+              const variables = { org: orgLogin };
+              
+              console.log('GraphQL variables:', JSON.stringify(variables));
+              
+              const result = await github.graphql(query, variables);
+              console.log('GraphQL result:', JSON.stringify(result, null, 2));
+              
               const discussions = result.organization.discussionCategories.nodes.flatMap(category => category.discussions.nodes);
               const mostRecentDiscussion = discussions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
               
               if (mostRecentDiscussion) {
+                console.log('Most recent discussion:', JSON.stringify(mostRecentDiscussion, null, 2));
                 return mostRecentDiscussion.id;
               } else {
                 throw new Error('No discussions found');
               }
             } catch (error) {
-              console.error('GraphQL Error:', error);
+              console.error('Error in get_discussion step:', error.message);
+              console.error('Error stack:', error.stack);
               throw error;
             }
 
