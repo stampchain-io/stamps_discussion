@@ -16,8 +16,20 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      - name: Get discussion details
+        id: get-discussion
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            console.log('Event payload:', JSON.stringify(context.payload, null, 2));
+            const discussionId = context.payload.discussion.node_id;
+            console.log('Discussion ID:', discussionId);
+            return discussionId;
+
       - name: Add to project
         uses: actions/add-to-project@v1.0.2
         with:
           project-url: https://github.com/orgs/stampchain-io/projects/3
           github-token: ${{ steps.generate_token.outputs.token }}
+          content-id: ${{ steps.get-discussion.outputs.result }}
