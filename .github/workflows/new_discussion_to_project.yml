@@ -29,6 +29,7 @@ jobs:
             const discussion = eventPayload.discussion;
             
             console.log(`Organization: ${orgLogin}, Repository: ${repoName}, Discussion Number: ${discussion.number}`);
+            console.log('Discussion node_id:', discussion.node_id);
             
             // First, get the project ID
             const getProjectIdQuery = `
@@ -43,6 +44,7 @@ jobs:
             
             let projectId;
             try {
+              console.log('Fetching Project ID...');
               const projectResult = await github.graphql(getProjectIdQuery, {
                 org: orgLogin,
                 number: 3  // Replace with your actual project number
@@ -66,6 +68,14 @@ jobs:
             `;
             
             try {
+              console.log('Adding discussion to project...');
+              console.log('Input:', JSON.stringify({
+                input: {
+                  projectId: projectId,
+                  contentId: discussion.node_id
+                }
+              }, null, 2));
+              
               const result = await github.graphql(addToProjectMutation, {
                 input: {
                   projectId: projectId,
@@ -81,5 +91,6 @@ jobs:
               if (error.errors) {
                 error.errors.forEach((e, i) => console.error(`Error ${i + 1}:`, e));
               }
+              console.error('Full error object:', JSON.stringify(error, null, 2));
               throw error;
             }
