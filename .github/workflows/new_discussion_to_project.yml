@@ -25,6 +25,7 @@ jobs:
             
             console.log(`Organization: ${orgLogin}, Project Number: ${projectNumber}`);
             console.log('Discussion URL:', context.payload.discussion.html_url);
+            console.log('Discussion node_id:', context.payload.discussion.node_id);
             
             // First, get the project ID
             const getProjectIdQuery = `
@@ -75,5 +76,10 @@ jobs:
               if (error.errors) {
                 error.errors.forEach((e, i) => console.error(`Error ${i + 1}:`, e));
               }
+              
+              // Additional error information
+              console.log('Full context payload:', JSON.stringify(context.payload, null, 2));
+              console.log('GitHub context:', JSON.stringify(github.context, null, 2));
+              
               throw error;
             }
