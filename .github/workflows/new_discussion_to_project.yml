@@ -1,4 +1,4 @@
-name: Add org-wide discussions to project
+name: Add new discussions to project
 
 on:
   discussion:
@@ -6,79 +6,10 @@ on:
 
 jobs:
   add-to-project:
+    name: Add discussion to project
     runs-on: ubuntu-latest
     steps:
-      - name: Generate token
-        id: generate_token
-        uses: tibdex/github-app-token@v2
+      - uses: actions/add-to-project@v0.5.0
         with:
-          app_id: ${{ secrets.APP_ID }}
-          private_key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Add Discussion to Project
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ steps.generate_token.outputs.token }}
-          script: |
-            const orgLogin = 'stampchain-io';
-            const projectNumber = 3;
-            
-            console.log(`Organization: ${orgLogin}, Project Number: ${projectNumber}`);
-            console.log('Discussion URL:', context.payload.discussion.html_url);
-            console.log('Discussion node_id:', context.payload.discussion.node_id);
-            
-            // First, get the project ID
-            const getProjectIdQuery = `
-              query($org: String!, $number: Int!) {
-                organization(login: $org){
-                  projectV2(number: $number) {
-                    id
-                  }
-                }
-              }
-            `;
-            
-            let projectId;
-            try {
-              console.log('Fetching Project ID...');
-              const projectResult = await github.graphql(getProjectIdQuery, {
-                org: orgLogin,
-                number: projectNumber
-              });
-              projectId = projectResult.organization.projectV2.id;
-              console.log('Project ID:', projectId);
-            } catch (error) {
-              console.error('Error fetching Project ID:', error);
-              throw error;
-            }
-            
-            // Now, add the discussion to the project using its URL
-            const addToProjectMutation = `
-              mutation($projectId: ID!, $contentUrl: String!) {
-                addProjectV2ItemByUrl(input: {projectId: $projectId, url: $contentUrl}) {
-                  item {
-                    id
-                  }
-                }
-              }
-            `;
-            
-            try {
-              console.log('Adding discussion to project...');
-              const result = await github.graphql(addToProjectMutation, {
-                projectId: projectId,
-                contentUrl: context.payload.discussion.html_url
-              });
-              
-              console.log('Added to project:', JSON.stringify(result, null, 2));
-            } catch (error) {
-              console.error('Error adding to project:', error);
-              if (error.errors) {
-                error.errors.forEach((e, i) => console.error(`Error ${i + 1}:`, e));
-              }
-              
-              // Additional error information
-              console.log('Full context payload:', JSON.stringify(context.payload, null, 2));
-              
-              throw error;
-            }
+          project-url: https://github.com/orgs/stampchain-io/projects/3
+          github-token: ${{ secrets.GITHUB_TOKEN }}
