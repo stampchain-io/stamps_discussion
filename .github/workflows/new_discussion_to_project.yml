@@ -25,22 +25,29 @@ jobs:
             console.log('Event payload:', JSON.stringify(eventPayload, null, 2));
             
             const orgLogin = eventPayload.organization.login;
-            const repoName = eventPayload.repository.name;
             const discussion = eventPayload.discussion;
             
-            console.log(`Organization: ${orgLogin}, Repository: ${repoName}, Discussion Number: ${discussion.number}`);
+            console.log(`Organization: ${orgLogin}, Discussion Number: ${discussion.number}`);
+            
+            const query = `
+              mutation($projectId:ID!, $contentId:ID!) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                  item {
+                    id
+                  }
+                }
+              }
+            `;
             
             try {
-              // Add discussion to project
-              const response = await github.rest.projects.createCard({
-                column_id: 'YOUR_PROJECT_COLUMN_ID',
-                content_id: discussion.id,
-                content_type: 'Discussion'
+              const result = await github.graphql(query, {
+                projectId: "3",
+                contentId: discussion.node_id
               });
               
-              console.log('Added to project:', JSON.stringify(response.data, null, 2));
+              console.log('Added to project:', JSON.stringify(result, null, 2));
               
-              return discussion.id;
+              return result.addProjectV2ItemById.item.id;
             } catch (error) {
               console.error('Error:', error);
               throw error;
