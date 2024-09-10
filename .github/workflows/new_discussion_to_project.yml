@@ -2,7 +2,7 @@ name: Add new discussions to project
 
 on:
   discussion:
-    types: [created, reopened]
+    types: [created]
 
 jobs:
   add-to-project:
@@ -22,31 +22,11 @@ jobs:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
             const projectId = 'PVT_kwDOCAGLAM4Anzfw';
-            const discussionNumber = context.payload.discussion.number;
-            const orgName = 'stampchain-io';
-            const repoName = 'stamps_discussion';
+            const discussionId = context.payload.discussion.node_id;
 
-            console.log(`Adding discussion #${discussionNumber} to project ${projectId}`);
+            console.log(`Adding discussion ${discussionId} to project ${projectId}`);
 
             try {
-              // First, get the discussion ID
-              const { repository } = await github.graphql(`
-                query($orgName: String!, $repoName: String!, $number: Int!) {
-                  repository(owner: $orgName, name: $repoName) {
-                    discussion(number: $number) {
-                      id
-                    }
-                  }
-                }
-              `, {
-                orgName,
-                repoName,
-                number: discussionNumber
-              });
-
-              const discussionId = repository.discussion.id;
-
-              // Now add the discussion to the project
               const response = await github.graphql(`
                 mutation($projectId: ID!, $contentId: ID!) {
                   addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
@@ -56,7 +36,7 @@ jobs:
                   }
                 }
               `, {
-                projectId,
+                projectId: projectId,
                 contentId: discussionId
               });
 
