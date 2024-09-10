@@ -16,14 +16,6 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Debug Info
-        run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "Action: ${{ github.event.action }}"
-          echo "Discussion ID: ${{ github.event.discussion.node_id }}"
-          echo "Discussion Number: ${{ github.event.discussion.number }}"
-          echo "Organization: ${{ github.repository_owner }}"
-
       - name: Add to project
         uses: actions/github-script@v7
         with:
@@ -31,11 +23,8 @@ jobs:
           script: |
             const projectId = 'PVT_kwDOCAGLAM4Anzfw';
             const discussionId = context.payload.discussion.node_id;
-            const orgName = context.payload.organization.login;
-            const repoName = context.payload.repository.name;
             
             console.log(`Adding discussion ${discussionId} to project ${projectId}`);
-            console.log(`Organization: ${orgName}, Repository: ${repoName}`);
             
             try {
               const response = await github.graphql(`
