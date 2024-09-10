@@ -16,21 +16,46 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Debug - Print Discussion ID
+      - name: Debug - Print Context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
         run: |
+          echo "GitHub Context: $GITHUB_CONTEXT"
           echo "Discussion ID: ${{ github.event.discussion.node_id }}"
+          echo "Discussion Number: ${{ github.event.discussion.number }}"
+          echo "Organization: ${{ github.organization }}"
 
       - name: Add to project
         uses: actions/github-script@v6
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const projectId = 'PVT_kwDOCAGLAM4Anzfw'; // Replace with your actual project ID
+            const projectId = 'PVT_kwDOCAGLAM4Anzfw';
             const contentId = context.payload.discussion.node_id;
+            const discussionNumber = context.payload.discussion.number;
+            const orgName = context.payload.organization.login;
             
-            console.log(`Adding discussion ${contentId} to project ${projectId}`);
+            console.log(`Adding discussion ${contentId} (number ${discussionNumber}) to project ${projectId}`);
+            console.log(`Organization: ${orgName}`);
             
             try {
+              // First, try to get the discussion details
+              const { organization } = await github.graphql(`
+                query($orgName: String!, $number: Int!) {
+                  organization(login: $orgName) {
+                    discussion(number: $number) {
+                      id
+                    }
+                  }
+                }
+              `, {
+                orgName,
+                number: discussionNumber
+              });
+              
+              console.log('Discussion details:', JSON.stringify(organization, null, 2));
+              
+              // Now try to add it to the project
               const response = await github.graphql(`
                 mutation($projectId: ID!, $contentId: ID!) {
                   addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
@@ -41,7 +66,7 @@ jobs:
                 }
               `, {
                 projectId: projectId,
-                contentId: contentId
+                contentId: organization.discussion.id
               });
               
               console.log('Response:', JSON.stringify(response, null, 2));
