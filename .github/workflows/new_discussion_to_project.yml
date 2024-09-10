@@ -15,7 +15,7 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Add discussion to project
+      - name: Get Project ID and Add Discussion
         uses: actions/github-script@v7
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -29,7 +29,32 @@ jobs:
             
             console.log(`Organization: ${orgLogin}, Discussion Number: ${discussion.number}`);
             
-            const query = `
+            // First, get the project ID
+            const getProjectIdQuery = `
+              query($org: String!, $number: Int!) {
+                organization(login: $org){
+                  projectV2(number: $number) {
+                    id
+                  }
+                }
+              }
+            `;
+            
+            let projectId;
+            try {
+              const projectResult = await github.graphql(getProjectIdQuery, {
+                org: orgLogin,
+                number: 3
+              });
+              projectId = projectResult.organization.projectV2.id;
+              console.log('Project ID:', projectId);
+            } catch (error) {
+              console.error('Error fetching Project ID:', error);
+              throw error;
+            }
+            
+            // Now, add the discussion to the project
+            const addToProjectQuery = `
               mutation($projectId:ID!, $contentId:ID!) {
                 addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
                   item {
@@ -40,8 +65,8 @@ jobs:
             `;
             
             try {
-              const result = await github.graphql(query, {
-                projectId: "3",
+              const result = await github.graphql(addToProjectQuery, {
+                projectId: projectId,
                 contentId: discussion.node_id
               });
               
@@ -49,6 +74,9 @@ jobs:
               
               return result.addProjectV2ItemById.item.id;
             } catch (error) {
-              console.error('Error:', error);
+              console.error('Error adding to project:', error);
+              if (error.errors) {
+                error.errors.forEach((e, i) => console.error(`Error ${i + 1}:`, e));
+              }
               throw error;
             }
