@@ -2,7 +2,7 @@ name: Add new discussions to project
 
 on:
   discussion:
-    types: [created]
+    types: [created, reopened]
 
 jobs:
   add-to-project:
