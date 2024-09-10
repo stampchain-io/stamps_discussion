@@ -1,11 +1,11 @@
-name: Create issue from discussion
+name: Create issue from discussion and update discussion
 
 on:
   discussion:
     types: [labeled]
 
 jobs:
-  create-issue:
+  create-issue-and-update-discussion:
     if: contains(fromJson('["explorer", "indexer"]'), github.event.label.name)
     runs-on: ubuntu-latest
     steps:
@@ -16,7 +16,7 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Create issue
+      - name: Create issue and update discussion
         uses: actions/github-script@v6
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -24,18 +24,35 @@ jobs:
             const label = context.payload.label.name;
             const discussion = context.payload.discussion;
             
+            // Map labels to repositories
             const repoMap = {
-            'explorer': 'stampchain-io/BTCStampsExplorer',
-            'indexer': 'stampchain-io/btc_stamps',
+              'explorer': 'stampchain-io/BTCStampsExplorer',
+              'indexer': 'stampchain-io/btc_stamps',
             };
             
             if (repoMap[label]) {
               const [owner, repo] = repoMap[label].split('/');
-              await github.rest.issues.create({
+              
+              // Create issue
+              const issue = await github.rest.issues.create({
                 owner: owner,
                 repo: repo,
                 title: `Discussion: ${discussion.title}`,
                 body: `Created from discussion: ${discussion.html_url}\n\n${discussion.body}`,
                 labels: ['from-discussion']
               });
+              
+              // Update discussion with issue link
+              const issueUrl = issue.data.html_url;
+              const updatedBody = `${discussion.body}\n\n---\nIssue created: ${issueUrl}`;
+              
+              await github.rest.discussions.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                discussion_number: discussion.number,
+                body: updatedBody
+              });
+              
+              console.log(`Issue created: ${issueUrl}`);
+              console.log(`Discussion updated: ${discussion.html_url}`);
             }
