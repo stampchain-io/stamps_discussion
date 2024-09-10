@@ -21,21 +21,44 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            const query = `query($org: String!, $number: Int!) {
+            console.log('Event payload:', JSON.stringify(github.context.payload));
+            const query = `query($org: String!) {
               organization(login: $org) {
-                discussion(number: $number) {
-                  id
+                discussionCategories(first: 10) {
+                  nodes {
+                    discussions(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
+                      nodes {
+                        id
+                      }
+                    }
+                  }
                 }
               }
             }`;
             
             const variables = {
-              org: context.payload.organization.login,
-              number: context.payload.discussion.number
+              org: context.payload.organization.login
             };
             
-            const result = await github.graphql(query, variables);
-            return result.organization.discussion.id;
+            console.log('GraphQL variables:', JSON.stringify(variables));
+            
+            try {
+              const result = await github.graphql(query, variables);
+              console.log('GraphQL result:', JSON.stringify(result));
+              
+              // Find the most recently created discussion
+              const discussions = result.organization.discussionCategories.nodes.flatMap(category => category.discussions.nodes);
+              const mostRecentDiscussion = discussions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+              
+              if (mostRecentDiscussion) {
+                return mostRecentDiscussion.id;
+              } else {
+                throw new Error('No discussions found');
+              }
+            } catch (error) {
+              console.error('GraphQL Error:', error);
+              throw error;
+            }
 
       - name: Add to Project
         uses: actions/add-to-project@v0.6.0
