@@ -1,0 +1,22 @@
+name: Add new discussions to project
+
+on:
+  discussion:
+    types: [created]
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Add to Project
+        uses: actions/add-to-project@v0.5.0
+        with:
+          project-url: https://github.com/orgs/stampchain-io/projects/3
+          github-token: ${{ steps.generate_token.outputs.token }}
