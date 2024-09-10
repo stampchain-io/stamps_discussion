@@ -15,16 +15,13 @@ jobs:
           app_id: ${{ secrets.APP_ID }}
           private_key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - name: Debug Context
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ steps.generate_token.outputs.token }}
-          script: |
-            console.log('Full github context:', JSON.stringify(github, null, 2));
-            console.log('Event name:', github.context.eventName);
-            console.log('Action:', github.context.action);
-            console.log('Actor:', github.context.actor);
-            console.log('Payload:', JSON.stringify(github.context.payload, null, 2));
+      - name: Debug Environment
+        run: |
+          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "GITHUB_ACTOR: $GITHUB_ACTOR"
+          echo "GITHUB_EVENT_PATH: $GITHUB_EVENT_PATH"
+          cat $GITHUB_EVENT_PATH
 
       - name: Get discussion details
         id: get_discussion
@@ -32,38 +29,36 @@ jobs:
         with:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
-            try {
-              if (!github.context || !github.context.payload) {
-                throw new Error('GitHub context or payload is undefined');
-              }
-
-              const orgLogin = github.context.payload.organization?.login;
-              if (!orgLogin) {
-                throw new Error('Organization login not found in payload');
-              }
-
-              console.log('Organization login:', orgLogin);
-
-              const query = `query($org: String!) {
-                organization(login: $org) {
-                  discussionCategories(first: 10) {
-                    nodes {
-                      discussions(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
-                        nodes {
-                          id
-                          title
-                          createdAt
-                        }
+            const fs = require('fs');
+            const eventPayload = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+            console.log('Event payload:', JSON.stringify(eventPayload, null, 2));
+            
+            const orgLogin = eventPayload.organization?.login;
+            if (!orgLogin) {
+              throw new Error('Organization login not found in payload');
+            }
+            
+            console.log('Organization login:', orgLogin);
+            
+            const query = `query($org: String!) {
+              organization(login: $org) {
+                discussionCategories(first: 10) {
+                  nodes {
+                    discussions(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
+                      nodes {
+                        id
+                        title
+                        createdAt
                       }
                     }
                   }
                 }
-              }`;
-              
-              const variables = { org: orgLogin };
-              
-              console.log('GraphQL variables:', JSON.stringify(variables));
-              
+              }
+            }`;
+            
+            const variables = { org: orgLogin };
+            
+            try {
               const result = await github.graphql(query, variables);
               console.log('GraphQL result:', JSON.stringify(result, null, 2));
               
@@ -77,8 +72,7 @@ jobs:
                 throw new Error('No discussions found');
               }
             } catch (error) {
-              console.error('Error in get_discussion step:', error.message);
-              console.error('Error stack:', error.stack);
+              console.error('GraphQL Error:', error);
               throw error;
             }
 
