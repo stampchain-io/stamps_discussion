@@ -1,0 +1,70 @@
+name: Update discussion when issue is closed
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  update-discussion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Update discussion
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ steps.generate_token.outputs.token }}
+          script: |
+            const issue = context.payload.issue;
+            
+            // Check if the issue was created from a discussion
+            if (issue.labels.some(label => label.name === 'from-discussion')) {
+              // Extract the discussion URL from the issue body
+              const discussionUrlMatch = issue.body.match(/Created from discussion: (https:\/\/github\.com\/.*\/discussions\/\d+)/);
+              if (discussionUrlMatch) {
+                const discussionUrl = discussionUrlMatch[1];
+                const [, , , orgName, repoName, , discussionNumber] = discussionUrl.split('/');
+                
+                // Fetch the discussion to get its node_id
+                const { repository } = await github.graphql(`
+                  query($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      discussion(number: $number) {
+                        id
+                        body
+                      }
+                    }
+                  }
+                `, {
+                  owner: orgName,
+                  repo: repoName,
+                  number: parseInt(discussionNumber)
+                });
+                
+                const discussionId = repository.discussion.id;
+                const currentBody = repository.discussion.body;
+                
+                // Update the discussion body
+                const updatedBody = `${currentBody}\n\n---\nRelated issue closed: ${issue.html_url}\nClosed on: ${issue.closed_at}\nClosed by: ${issue.closed_by.login}`;
+                
+                await github.graphql(`
+                  mutation($discussionId: ID!, $body: String!) {
+                    updateDiscussion(input: {discussionId: $discussionId, body: $body}) {
+                      discussion {
+                        id
+                      }
+                    }
+                  }
+                `, {
+                  discussionId: discussionId,
+                  body: updatedBody
+                });
+                
+                console.log(`Discussion updated: ${discussionUrl}`);
+              }
+            }
