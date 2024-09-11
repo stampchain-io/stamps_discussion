@@ -35,18 +35,23 @@ jobs:
               // Generate a unique ID
               const uniqueId = `DI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
               
+              // Sanitize title and body
+              const sanitizeString = (str) => str.replace(/[^\w\s-]/g, '').trim();
+              const safeTitle = sanitizeString(discussion.title);
+              const safeBody = sanitizeString(discussion.body);
+              
               // Create issue
               const issue = await github.rest.issues.create({
                 owner: owner,
                 repo: repo,
-                title: `Discussion: ${discussion.title}`,
-                body: `Created from discussion: ${discussion.html_url}\n\nDiscussion-Issue-ID: ${uniqueId}\n\n${discussion.body}`,
+                title: `Discussion: ${safeTitle}`,
+                body: `Created from discussion: ${discussion.html_url}\n\nDiscussion-Issue-ID: ${uniqueId}\n\n${safeBody}`,
                 labels: ['from-discussion']
               });
               
               // Update discussion with issue link
               const issueUrl = issue.data.html_url;
-              const updatedBody = `${discussion.body}\n\n---\nIssue created: ${issueUrl}\nDiscussion-Issue-ID: ${uniqueId}`;
+              const updatedBody = `${safeBody}\n\n---\nIssue created: ${issueUrl}\nDiscussion-Issue-ID: ${uniqueId}`;
               
               await github.graphql(`
                 mutation($discussionId: ID!, $body: String!) {
