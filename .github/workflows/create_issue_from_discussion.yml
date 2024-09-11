@@ -33,35 +33,26 @@ jobs:
             if (repoMap[label]) {
               const [owner, repo] = repoMap[label].split('/');
               
-              // Generate a unique ID
-              const uniqueId = `DI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-              
               // Create issue
               const issue = await github.rest.issues.create({
                 owner: owner,
                 repo: repo,
                 title: `Discussion: ${discussion.title}`,
-                body: `Created from discussion: ${discussion.html_url}\nDiscussion-Issue-ID: ${uniqueId}\n\n${discussion.body}`,
+                body: `Created from discussion: ${discussion.html_url}\n\n${discussion.body}`,
                 labels: ['from-discussion']
               });
               
               // Update discussion with issue link
               const issueUrl = issue.data.html_url;
-              const updatedBody = `${discussion.body}\n\n---\nIssue created: ${issueUrl}\nDiscussion-Issue-ID: ${uniqueId}`;
+              const updatedBody = `${discussion.body}\n\n---\nIssue created: ${issueUrl}`;
               
-              await github.graphql(`
-                mutation($discussionId: ID!, $body: String!) {
-                  updateDiscussion(input: {discussionId: $discussionId, body: $body}) {
-                    discussion {
-                      id
-                    }
-                  }
-                }
-              `, {
-                discussionId: discussion.node_id,
+              await github.rest.discussions.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                discussion_number: discussion.number,
                 body: updatedBody
               });
               
               console.log(`Issue created: ${issueUrl}`);
               console.log(`Discussion updated: ${discussion.html_url}`);
-              console.log(`Discussion-Issue-ID: ${uniqueId}`);
+            }
