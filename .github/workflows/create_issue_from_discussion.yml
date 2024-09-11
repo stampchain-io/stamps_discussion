@@ -30,14 +30,8 @@ jobs:
               'indexer': 'stampchain-io/btc_stamps',
             };
             
-            // Function to sanitize strings
-            const sanitizeString = (str) => {
-              return str
-                .replace(/`/g, '\\`')  // Escape backticks
-                .replace(/\$/g, '\\$')  // Escape dollar signs
-                .replace(/\n/g, '\\n')  // Escape newlines
-                .trim();
-            };
+            // Function to safely stringify content
+            const safeStringify = (obj) => JSON.stringify(obj).replace(/[^\w\s-]/g, '');
             
             if (repoMap[label]) {
               const [owner, repo] = repoMap[label].split('/');
@@ -45,9 +39,9 @@ jobs:
               // Generate a unique ID
               const uniqueId = `DI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
               
-              // Sanitize title and body
-              const safeTitle = sanitizeString(discussion.title);
-              const safeBody = sanitizeString(discussion.body);
+              // Safely stringify title and body
+              const safeTitle = safeStringify(discussion.title);
+              const safeBody = safeStringify(discussion.body);
               
               // Create issue
               const issue = await github.rest.issues.create({
