@@ -1,8 +1,8 @@
-name: Update discussion when issue is closed
+name: Update discussion when issue is edited
 
 on:
   issues:
-    types: [closed]
+    types: [edited]
 
 jobs:
   update-discussion:
@@ -21,6 +21,7 @@ jobs:
           github-token: ${{ steps.generate_token.outputs.token }}
           script: |
             const issue = context.payload.issue;
+            const changes = context.payload.changes;
             
             // Check if the issue was created from a discussion
             if (issue.labels.some(label => label.name === 'from-discussion')) {
@@ -54,8 +55,17 @@ jobs:
                 
                 // Ensure the Discussion-Issue-ID matches
                 if (currentBody.includes(`Discussion-Issue-ID: ${uniqueId}`)) {
+                  // Prepare update message
+                  let updateMessage = `\n\n---\nIssue updated on: ${new Date().toISOString()}`;
+                  if (changes.title) {
+                    updateMessage += `\nTitle changed from "${changes.title.from}" to "${issue.title}"`;
+                  }
+                  if (changes.body) {
+                    updateMessage += `\nBody was updated`;
+                  }
+                  
                   // Update the discussion body
-                  const updatedBody = `${currentBody}\n\n---\nRelated issue closed: ${issue.html_url}\nClosed on: ${issue.closed_at}\nClosed by: ${issue.closed_by.login}`;
+                  const updatedBody = `${currentBody}${updateMessage}`;
                   
                   await github.graphql(`
                     mutation($discussionId: ID!, $body: String!) {
