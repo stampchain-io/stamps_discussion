@@ -19,52 +19,47 @@ jobs:
       - name: Get discussion details
         id: get_discussion
         run: |
-          DISCUSSION_TITLE=$(jq -r '.discussion.title' $GITHUB_EVENT_PATH)
-          DISCUSSION_BODY=$(jq -r '.discussion.body' $GITHUB_EVENT_PATH)
-          DISCUSSION_URL=$(jq -r '.discussion.html_url' $GITHUB_EVENT_PATH)
-          DISCUSSION_ID=$(jq -r '.discussion.node_id' $GITHUB_EVENT_PATH)
-          LABEL=$(jq -r '.label.name' $GITHUB_EVENT_PATH)
-          echo "title=$DISCUSSION_TITLE" >> $GITHUB_OUTPUT
-          echo "body=$DISCUSSION_BODY" >> $GITHUB_OUTPUT
-          echo "url=$DISCUSSION_URL" >> $GITHUB_OUTPUT
-          echo "id=$DISCUSSION_ID" >> $GITHUB_OUTPUT
-          echo "label=$LABEL" >> $GITHUB_OUTPUT
+          echo "DISCUSSION_TITLE=$(jq -r '.discussion.title' $GITHUB_EVENT_PATH | sed 's/"/\\"/g')" >> $GITHUB_ENV
+          echo "DISCUSSION_BODY=$(jq -r '.discussion.body' $GITHUB_EVENT_PATH | sed 's/"/\\"/g')" >> $GITHUB_ENV
+          echo "DISCUSSION_URL=$(jq -r '.discussion.html_url' $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
+          echo "DISCUSSION_ID=$(jq -r '.discussion.node_id' $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
+          echo "LABEL=$(jq -r '.label.name' $GITHUB_EVENT_PATH)" >> $GITHUB_ENV
 
       - name: Create issue
         id: create_issue
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          if [ "${{ steps.get_discussion.outputs.label }}" == "explorer" ]; then
+          if [ "$LABEL" == "explorer" ]; then
             REPO="stampchain-io/BTCStampsExplorer"
-          elif [ "${{ steps.get_discussion.outputs.label }}" == "indexer" ]; then
+          elif [ "$LABEL" == "indexer" ]; then
             REPO="stampchain-io/btc_stamps"
           else
             echo "Invalid label"
             exit 1
           fi
           UNIQUE_ID="DI-$(date +%s)-$(openssl rand -hex 4)"
-          ISSUE_BODY="Created from discussion: ${{ steps.get_discussion.outputs.url }}\nDiscussion-Issue-ID: $UNIQUE_ID\n\n${{ steps.get_discussion.outputs.body }}"
+          ISSUE_BODY="Created from discussion: $DISCUSSION_URL\nDiscussion-Issue-ID: $UNIQUE_ID\n\n$DISCUSSION_BODY"
           RESPONSE=$(curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/$REPO/issues \
-            -d "{\"title\":\"Discussion: ${{ steps.get_discussion.outputs.title }}\", \"body\":\"$ISSUE_BODY\", \"labels\":[\"from-discussion\"]}")
+            -d "{\"title\":\"Discussion: $DISCUSSION_TITLE\", \"body\":\"$ISSUE_BODY\", \"labels\":[\"from-discussion\"]}")
           ISSUE_URL=$(echo $RESPONSE | jq -r '.html_url')
-          echo "url=$ISSUE_URL" >> $GITHUB_OUTPUT
-          echo "id=$UNIQUE_ID" >> $GITHUB_OUTPUT
+          echo "ISSUE_URL=$ISSUE_URL" >> $GITHUB_ENV
+          echo "ISSUE_ID=$UNIQUE_ID" >> $GITHUB_ENV
 
       - name: Update discussion
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
-          UPDATED_BODY="${{ steps.get_discussion.outputs.body }}\n\n---\nIssue created: ${{ steps.create_issue.outputs.url }}\nDiscussion-Issue-ID: ${{ steps.create_issue.outputs.id }}"
-          curl -X PATCH -H "Authorization: token $GITHUB_TOKEN" \
+          UPDATED_BODY="$DISCUSSION_BODY\n\n---\nIssue created: $ISSUE_URL\nDiscussion-Issue-ID: $ISSUE_ID"
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/graphql \
-            -d "{\"query\":\"mutation { updateDiscussion(input: {discussionId: \\\"${{ steps.get_discussion.outputs.id }}\\\", body: \\\"$UPDATED_BODY\\\"}) { discussion { id } } }\"}"
+            -d "{\"query\":\"mutation { updateDiscussion(input: {discussionId: \\\"$DISCUSSION_ID\\\", body: \\\"$UPDATED_BODY\\\"}) { discussion { id } } }\"}"
 
       - name: Log results
         run: |
-          echo "Issue created: ${{ steps.create_issue.outputs.url }}"
-          echo "Discussion updated: ${{ steps.get_discussion.outputs.url }}"
-          echo "Discussion-Issue-ID: ${{ steps.create_issue.outputs.id }}"
+          echo "Issue created: $ISSUE_URL"
+          echo "Discussion updated: $DISCUSSION_URL"
+          echo "Discussion-Issue-ID: $ISSUE_ID"
